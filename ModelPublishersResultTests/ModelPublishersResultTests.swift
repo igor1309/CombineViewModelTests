@@ -108,8 +108,34 @@ class ModelPublishersResultTests: XCTestCase {
             self.reporter = reporter
             self.projector = projector
 
-            // create publishers (constants) to assure pipeline returns correct type
+            // create publishers (constants) to assure pipeline(s) returns correct type
+            //
+            // switchToLatest va flatMap see
+            // https://heckj.github.io/swiftui-notes/#reference-switchtolatest
+            // switchToLatest operates similarly to flatMap, taking in a publisher instance and returning its value (or values). Where flatMap operates over the values it is provided, switchToLatest operates on whatever publisher it is provided. The primary difference is in where it gets the publisher. In flatMap, the publisher is returned within the closure provided to flatMap, and the operator works upon that to subscribe and provide the relevant value down the pipeline. In switchToLatest, the publisher instance is provided as the output type from a previous publisher or operator.
+            // The most common form of using this is with a one-shot publisher such as Just getting its value as a result of a map transform.
+            // It is also commonly used when working with an API that provides a publisher. switchToLatest assists in taking the result of the publisher and sending that down the pipeline rather than sending the publisher as the output type.
+            //
+            // for chaining map() and switchToLatest() see example in
+            // https://www.raywenderlich.com/books/combine-asynchronous-programming-with-swift/v1.0/chapters/5-combining-operators#toc-chapter-008-anchor-004
+            // consider the following scenario: Your user taps a button that triggers a network request. Immediately afterward, the user taps the button again, which triggers a second network request. But how do you get rid of the pending request, and only use the latest request?
+            //
+            // assign(to:)
+            // https://developer.apple.com/documentation/combine/publishers/share/assign(to:)
+            // Use this operator when you want to receive elements from a publisher and republish them through a property marked with the @Published attribute. The assign(to:) operator manages the life cycle of the subscription, canceling the subscription automatically when the Published instance deinitializes.
+            //
+            let pub0: AnyPublisher<ContentResult, Never> =
+            urlSubject
+                .receive(on: DispatchQueue.global())
+                .map(contentOf)
+                .switchToLatest()
+                .eraseToAnyPublisher()
 
+            pub0
+                .flatMap(reporter)
+                .receive(on: DispatchQueue.main)
+                .assign(to: &$reportResult)
+            /*
             let pub1: AnyPublisher<ReportResult, Never> =
                 urlSubject
                 .receive(on: DispatchQueue.global())
@@ -120,16 +146,14 @@ class ModelPublishersResultTests: XCTestCase {
                 .eraseToAnyPublisher()
 
             pub1.receive(on: DispatchQueue.main)
-                /// https://developer.apple.com/documentation/combine/publishers/share/assign(to:)
                 .assign(to: &$reportResult)
-
+             */
             let pub2: AnyPublisher<ProjectResult, Never> =
                 $reportResult
                 .flatMap(projector)
                 .eraseToAnyPublisher()
 
             pub2.receive(on: DispatchQueue.main)
-                /// https://developer.apple.com/documentation/combine/publishers/share/assign(to:)
                 .assign(to: &$projectResult)
 
         }
